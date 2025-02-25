@@ -1,6 +1,7 @@
 package com.example.hangmangame
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -43,6 +44,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.hangmangame.ui.theme.HangmanGameTheme
+import androidx.compose.ui.platform.LocalContext
+
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,13 +79,13 @@ fun Hangman(secretWord: String){
         6 -> R.drawable.hangman7
         else -> R.drawable.hangman8
     }
+    //the idea of letterStates given by ChatGPT
     val letterStates = remember {
         mutableStateMapOf<Char, Boolean>().apply {
             ('A'..'Z').forEach { put(it, false) }
         }
     }
     var guessedWord = remember { mutableStateListOf(*secretWord.map { '_' }.toTypedArray()) }
-
 
     fun reset(secretWord: String){
         wrongCounter = 0
@@ -172,6 +176,8 @@ fun LandscapeLayout(wrongCounter: Int,
                     letterStates: MutableMap<Char, Boolean>,
                     onNewGame: () -> Unit
 ){
+    var hintClickCount by rememberSaveable { mutableStateOf(0) }
+    val context = LocalContext.current
     Row {
         Column (
             modifier = Modifier.width(300.dp)
@@ -210,11 +216,42 @@ fun LandscapeLayout(wrongCounter: Int,
         VerticalDivider(color = Color.Gray, modifier = Modifier.fillMaxHeight(), thickness = 1.dp)
         //hangman pane and current word
         Column {
-            Button(
-                onClick = onNewGame,
-                modifier = Modifier.padding(8.dp)
-            ) {
-                Text(text = "New Game")
+            Row {
+                Button(
+                    onClick = onNewGame,
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    Text(text = "New Game")
+                }
+                Button(
+                    onClick = {
+                        when (hintClickCount){
+                            0 -> {
+                                Toast.makeText(context, "Hint: It's a direction!", Toast.LENGTH_SHORT).show()
+                                hintClickCount++
+                            }
+                            1 -> {
+                                if (wrongCounter >= 6) {
+                                    Toast.makeText(context, "Hint not available", Toast.LENGTH_SHORT).show()
+                                }else {
+                                    //ChatGPT does this part
+                                    val remainingLetters = letterStates.filter { !it.value && !secretword.contains(it.key) }
+                                        .keys.toList()
+                                    val countToDisable = remainingLetters.size / 2
+                                    remainingLetters.shuffled().take(countToDisable).forEach { letter ->
+                                        letterStates[letter] = true
+                                    }
+                                    onWrongGuess()
+                                    hintClickCount++
+                                }
+                            }
+                        }
+                    },
+                    enabled = hintClickCount < 2,
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    Text("Hint")
+                }
             }
             Image(
                 painter = painterResource(id = imageRes),
@@ -222,6 +259,7 @@ fun LandscapeLayout(wrongCounter: Int,
                 modifier = Modifier.fillMaxWidth().size(200.dp)
             )
             Text(
+                //I asked ChatGPT how to convert guessedword to a string for text
                 text = guessedword.joinToString(" "),
                 fontSize = 24.sp,
                 modifier = Modifier
